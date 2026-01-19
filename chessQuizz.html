@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrenador de Aperturas de Ajedrez Inteligente</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- chessboard.js library for the board UI -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+        crossorigin="anonymous">
+    <!-- jQuery is a dependency for chessboard.js -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+        crossorigin="anonymous"></script>
+    <!-- chessboard.js library logic -->
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"
+        crossorigin="anonymous"></script>
+    <!-- chess.js library for game logic (move validation, etc.) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+    <style>
+        /* Custom styles for a better look and feel */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .board-container {
+            width: 90vw;
+            max-width: 600px;
+        }
+        #feedback.correct { color: #22c55e; }
+        #feedback.incorrect { color: #ef4444; }
+        #feedback.info { color: #3b82f6; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Main Menu Screen -->
+    <div id="main-menu" class="w-full max-w-2xl mx-auto bg-gray-800 p-8 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold mb-6 text-center text-blue-400">Entrenador de Aperturas</h1>
+        
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-3 text-gray-300">Selecciona una Apertura Guardada</h2>
+            <select id="openings-select" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
+                <option value="">-- Ninguna --</option>
+            </select>
+            <div class="flex gap-2 mt-2">
+                 <button id="select-opening-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">Practicar Selección</button>
+                 <button id="delete-opening-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">Eliminar</button>
+            </div>
+        </div>
+
+        <div class="my-4 border-t border-gray-700"></div>
+
+        <div>
+            <h2 class="text-xl font-semibold mb-3 text-gray-300">O introduce un PGN manualmente</h2>
+            <textarea id="pgn-manual" rows="8" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" placeholder="1. e4 e5 2. Nf3 Nc6 ..."></textarea>
+            <button id="start-manual-btn" class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition">Practicar PGN Manual</button>
+        </div>
+
+        <div class="mt-6 text-center">
+            <button id="add-opening-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition">Añadir Nueva Apertura</button>
+        </div>
+    </div>
+
+    <!-- Add Opening Modal -->
+    <div id="add-opening-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg">
+            <h2 class="text-2xl font-bold mb-4">Añadir Nueva Apertura</h2>
+            <div class="mb-4">
+                <label for="opening-name" class="block mb-2 text-sm font-medium text-gray-300">Nombre de la Apertura</label>
+                <input type="text" id="opening-name" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white" placeholder="Ej: Apertura Italiana">
+            </div>
+            <!-- *** NEW: Color selector in modal *** -->
+            <div class="mb-4">
+                <label for="opening-color" class="block mb-2 text-sm font-medium text-gray-300">Jugar como</label>
+                <select id="opening-color" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white">
+                    <option value="w">Blancas</option>
+                    <option value="b">Negras</option>
+                </select>
+            </div>
+            <div class="mb-6">
+                <label for="opening-pgn" class="block mb-2 text-sm font-medium text-gray-300">PGN de la Apertura</label>
+                <textarea id="opening-pgn" rows="8" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 ..."></textarea>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-add-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                <button id="save-opening-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trainer Screen -->
+    <div id="trainer-screen" class="hidden w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
+        <div class="lg:w-1/3 w-full bg-gray-800 p-6 rounded-xl shadow-lg">
+            <h1 id="trainer-title" class="text-2xl font-bold mb-4 text-center text-blue-400">Practicando...</h1>
+            <div class="mb-6">
+                <label for="player-color" class="block mb-2 text-sm font-medium text-gray-300">Juegas con:</label>
+                <select id="player-color" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
+                    <option value="w">Blancas</option>
+                    <option value="b">Negras</option>
+                </select>
+            </div>
+            <button id="back-to-menu-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition">Volver al Menú</button>
+            <p id="status" class="text-center text-sm text-gray-400 mt-2 h-4"></p>
+        </div>
+
+        <div class="lg:w-2/3 w-full flex flex-col items-center">
+            <div id="board-container" class="board-container mb-4 shadow-2xl rounded-lg overflow-hidden">
+                <div id="board"></div>
+            </div>
+            <div id="quiz-section" class="w-full max-w-md text-center">
+                <h2 id="question" class="text-xl font-semibold mb-2 text-yellow-400">¡Tu turno!</h2>
+                <p id="feedback" class="text-lg font-medium h-8"></p>
+                <button id="restart-btn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition hidden">
+                    Jugar de Nuevo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        let board = null;
+        let game = new Chess();
+        let isPlayerTurn = true;
+        
+        let allPaths = [];
+        let currentPath = null;
+        let currentMoveIndex = 0;
+        let lastFailedPath = null;
+
+        // --- PGN PARSING & PATH GENERATION ---
+        function tokenizePgn(pgnText) {
+            const cleanedPgn = pgnText.replace(/{[^}]+}/g, '').replace(/\$\d+/g, '').replace(/\s(1-0|0-1|1\/2-1\/2|\*)$/, '').replace(/\d+\.(\.\.)?\s?/g, ' ');
+            return cleanedPgn.split(/([()])/g).flatMap(part => (part === '(' || part === ')') ? part : part.trim().split(/\s+/).filter(move => move)).filter(token => token);
+        }
+
+        function buildMoveTree(gameInstance, tokens) {
+            if (!tokens || tokens.length === 0) return [];
+            const mainMoveToken = tokens[0];
+            const moveGame = new Chess(gameInstance.fen());
+            const moveResult = moveGame.move(mainMoveToken, { sloppy: true });
+            if (!moveResult) return buildMoveTree(gameInstance, tokens.slice(1));
+
+            const mainNode = { move: moveResult.san, turn: gameInstance.turn(), children: [] };
+            const siblingNodes = [mainNode];
+            let currentTokenIndex = 1;
+
+            while (currentTokenIndex < tokens.length && tokens[currentTokenIndex] === '(') {
+                let parenCount = 1, variationEndIndex = -1;
+                for (let i = currentTokenIndex + 1; i < tokens.length; i++) {
+                    if (tokens[i] === '(') parenCount++;
+                    if (tokens[i] === ')') parenCount--;
+                    if (parenCount === 0) { variationEndIndex = i; break; }
+                }
+                if (variationEndIndex !== -1) {
+                    const variationTokens = tokens.slice(currentTokenIndex + 1, variationEndIndex);
+                    siblingNodes.push(...buildMoveTree(gameInstance, variationTokens));
+                    currentTokenIndex = variationEndIndex + 1;
+                } else { currentTokenIndex++; }
+            }
+            const childrenTokens = tokens.slice(currentTokenIndex);
+            mainNode.children = buildMoveTree(moveGame, childrenTokens);
+            return siblingNodes;
+        }
+
+        function generateAllPaths(nodes, currentPath, allPathsList) {
+            nodes.forEach(node => {
+                const newPath = [...currentPath, node.move];
+                if (node.children.length === 0) {
+                    allPathsList.push({
+                        id: newPath.join('-'),
+                        moves: newPath,
+                        stats: { made: 0, completed: 0, consecutiveSuccesses: 0 }
+                    });
+                } else {
+                    generateAllPaths(node.children, newPath, allPathsList);
+                }
+            });
+        }
+
+        // --- INTELLIGENT PATH SELECTION ---
+        function selectNextPathToPractice() {
+            const shuffled = [...allPaths].sort(() => Math.random() - 0.5);
+
+            shuffled.sort((a, b) => {
+                const statsA = a.stats;
+                const statsB = b.stats;
+                if (statsA.consecutiveSuccesses !== statsB.consecutiveSuccesses) {
+                    return statsA.consecutiveSuccesses - statsB.consecutiveSuccesses;
+                }
+                if (statsA.made !== statsB.made) {
+                    return statsA.made - statsB.made;
+                }
+                return 0;
+            });
+            return shuffled[0];
+        }
+
+        // --- GAME LOGIC ---
+        function startPractice(pgn, openingName, isSavedOpening) {
+            if (!pgn) { alert("No se ha proporcionado PGN para practicar."); return; }
+
+            $('#main-menu').addClass('hidden');
+            $('#trainer-screen').removeClass('hidden');
+            if (board) board.resize();
+            $('#trainer-title').text(`Practicando: ${openingName}`);
+            $('#status').text("Analizando PGN...");
+
+            // *** MODIFIED: Lock/unlock color dropdown based on practice type ***
+            if (isSavedOpening) {
+                $('#player-color').prop('disabled', true);
+            } else {
+                $('#player-color').prop('disabled', false);
+            }
+
+            setTimeout(() => {
+                const tokens = tokenizePgn(pgn);
+                const moveTree = buildMoveTree(new Chess(), tokens);
+                
+                allPaths = [];
+                generateAllPaths(moveTree, [], allPaths);
+                
+                lastFailedPath = null;
+                $('#status').text(`Análisis completo. ${allPaths.length} variantes encontradas.`);
+                startNewRound();
+            }, 50);
+        }
+
+        function startNewRound() {
+            $('#feedback').text('').removeClass('correct incorrect info');
+            $('#restart-btn').addClass('hidden');
+            $('#question').text('¡Tu turno!');
+            
+            game.reset();
+            currentMoveIndex = 0;
+
+            if (lastFailedPath) {
+                currentPath = lastFailedPath;
+                lastFailedPath = null;
+            } else {
+                currentPath = selectNextPathToPractice();
+            }
+            
+            board.position(game.fen());
+            
+            const playerColor = $('#player-color').val();
+            board.orientation(playerColor === 'w' ? 'white' : 'black');
+            isPlayerTurn = (playerColor === game.turn());
+            
+            if (!isPlayerTurn) {
+                // Use a small timeout to ensure the board is rendered before the opponent moves
+                setTimeout(playOpponentTurn, 250);
+            }
+        }
+
+        function playOpponentTurn() {
+            if (currentMoveIndex >= currentPath.moves.length) {
+                finishGame(true);
+                return;
+            }
+            const moveSAN = currentPath.moves[currentMoveIndex];
+            game.move(moveSAN, { sloppy: true });
+            board.position(game.fen());
+            $('#feedback').text(`El rival jugó ${moveSAN}.`).addClass('info');
+            currentMoveIndex++;
+
+            if (currentMoveIndex >= currentPath.moves.length) {
+                finishGame(true);
+            } else {
+                isPlayerTurn = true;
+            }
+        }
+        
+        function finishGame(isSuccess) {
+            isPlayerTurn = false;
+            currentPath.stats.made++;
+            if (isSuccess) {
+                $('#feedback').text("¡Felicidades! Has completado la variante.").addClass('correct');
+                currentPath.stats.completed++;
+                currentPath.stats.consecutiveSuccesses++;
+                lastFailedPath = null;
+            } else {
+                const correctMove = currentPath.moves[currentMoveIndex];
+                $('#feedback').text(`Incorrecto. El movimiento correcto era ${correctMove}.`).addClass('incorrect');
+                currentPath.stats.consecutiveSuccesses = 0;
+                lastFailedPath = currentPath;
+            }
+            $('#restart-btn').removeClass('hidden');
+        }
+
+        function onDrop(source, target) {
+            if (!isPlayerTurn) return 'snapback';
+
+            const expectedMove = currentPath.moves[currentMoveIndex];
+            const move = game.move({ from: source, to: target, promotion: 'q' });
+
+            if (move === null) return 'snapback';
+
+            if (move.san === expectedMove) {
+                $('#feedback').text('¡Correcto!').addClass('correct').removeClass('incorrect info');
+                currentMoveIndex++;
+                isPlayerTurn = false;
+                
+                setTimeout(playOpponentTurn, 300);
+            } else {
+                game.undo();
+                board.position(game.fen());
+                finishGame(false);
+            }
+        }
+
+        // --- OPENING MANAGEMENT (localStorage) ---
+        const OPENINGS_KEY = 'chessOpenings';
+        function getSavedOpenings() { return JSON.parse(localStorage.getItem(OPENINGS_KEY)) || {}; }
+        function saveOpenings(openings) { localStorage.setItem(OPENINGS_KEY, JSON.stringify(openings)); }
+        function populateOpeningsSelect() {
+            const openings = getSavedOpenings();
+            const select = $('#openings-select');
+            select.empty().append('<option value="">-- Ninguna --</option>');
+            for (const name in openings) {
+                // Display name and color in the dropdown
+                const colorText = openings[name].color === 'w' ? 'Blancas' : 'Negras';
+                select.append($('<option>', { value: name, text: `${name} (${colorText})` }));
+            }
+        }
+
+        // --- Event Handlers ---
+        $('#add-opening-btn').on('click', () => $('#add-opening-modal').removeClass('hidden'));
+        $('#cancel-add-btn').on('click', () => $('#add-opening-modal').addClass('hidden'));
+        
+        // *** MODIFIED: Save opening as an object with PGN and color ***
+        $('#save-opening-btn').on('click', () => {
+            const name = $('#opening-name').val().trim();
+            const pgn = $('#opening-pgn').val().trim();
+            const color = $('#opening-color').val();
+            if (!name || !pgn) { alert("Por favor, introduce un nombre y un PGN."); return; }
+            const openings = getSavedOpenings();
+            openings[name] = { pgn: pgn, color: color };
+            saveOpenings(openings);
+            populateOpeningsSelect();
+            $('#opening-name').val('');
+            $('#opening-pgn').val('');
+            $('#add-opening-modal').addClass('hidden');
+        });
+
+        $('#delete-opening-btn').on('click', () => {
+            const selectedName = $('#openings-select').val();
+            if (!selectedName) { alert("Por favor, selecciona una apertura para eliminar."); return; }
+            if (confirm(`¿Estás seguro de que quieres eliminar la apertura "${selectedName}"?`)) {
+                const openings = getSavedOpenings();
+                delete openings[selectedName];
+                saveOpenings(openings);
+                populateOpeningsSelect();
+            }
+        });
+
+        // *** MODIFIED: Set color dropdown from saved opening before starting ***
+        $('#select-opening-btn').on('click', () => {
+            const selectedName = $('#openings-select').val();
+            if (!selectedName) { alert("Por favor, selecciona una apertura."); return; }
+            const opening = getSavedOpenings()[selectedName];
+            $('#player-color').val(opening.color); // Set the color
+            startPractice(opening.pgn, selectedName, true); // Pass true for isSavedOpening
+        });
+
+        $('#start-manual-btn').on('click', () => {
+            const pgn = $('#pgn-manual').val();
+            if (!pgn) { alert("Por favor, introduce un PGN."); return; }
+            startPractice(pgn, "PGN Manual", false); // Pass false for isSavedOpening
+        });
+
+        $('#back-to-menu-btn').on('click', () => {
+            $('#trainer-screen').addClass('hidden');
+            $('#main-menu').removeClass('hidden');
+            $('#player-color').prop('disabled', false); // Re-enable dropdown
+            allPaths = []; currentPath = null; lastFailedPath = null;
+        });
+        
+        $('#restart-btn').on('click', startNewRound);
+
+        // --- Initialization ---
+        $(document).ready(function() {
+            const pieceTheme = function(piece) {
+                const pieceMap = {
+                    'wP': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+                    'wR': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+                    'wN': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+                    'wB': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+                    'wQ': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+                    'wK': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+                    'bP': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+                    'bR': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+                    'bN': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+                    'bB': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+                    'bQ': 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+                    'bK': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg'
+                };
+                return pieceMap[piece];
+            };
+            const config = { draggable: true, position: 'start', onDrop: onDrop, pieceTheme: pieceTheme };
+            board = Chessboard('board', config);
+            $(window).resize(board.resize);
+            populateOpeningsSelect();
+        });
+    </script>
+
+</body>
+</html>

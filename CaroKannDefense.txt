@@ -1,0 +1,6 @@
+1. e4 c6 2. d4 d5 3. exd5 (3. Nc3 dxe4 4. f3 (4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6)
+4... e3 5. Bxe3) (3. Nd2 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6) (3. f3 g6 4. Be3
+Bg7 5. Nc3 Qb6) (3. e5 c5 4. c3 (4. dxc5 Nc6 5. Nf3 Bg4 6. Be2 e6 7. Be3 Nge7)
+4... Nc6 5. Nf3 Bg4 6. Be2 Bxf3 7. Bxf3 cxd4 8. cxd4 e6) 3... cxd5 4. Nf3 (4. c4
+Nf6 5. Nc3 g6 6. Qb3 Bg7 7. cxd5 O-O) 4... Nc6 5. Be2 Nf6 6. Nc3 Bf5 7. O-O e6
+8. Bf4 Bd6 *
